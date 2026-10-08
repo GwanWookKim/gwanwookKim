@@ -1,6 +1,5 @@
 # Open API Service 2 - Click the map, get the weather
 # A click on the map becomes latitude and longitude, which become an API request.
-
 import requests
 import pandas as pd
 import streamlit as st
@@ -58,6 +57,6 @@ col1, col2, col3 = st.columns(3)
 col1.metric("Now (first hour)", f"{df.iloc[0, 0]:.1f} °C")
 col2.metric("Highest", f"{df.iloc[:, 0].max():.1f} °C")
 col3.metric("Lowest", f"{df.iloc[:, 0].min():.1f} °C")
-st.line_chart(df)
 
+st.line_chart(df)
 st.caption("Data: Open-Meteo.com (free for non-commercial use).")
