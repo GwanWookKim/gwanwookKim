@@ -1,1 +1,63 @@
-{"latitude":37.55,"longitude":127.0,"generationtime_ms":0.04673004150390625,"utc_offset_seconds":32400,"timezone":"Asia/Seoul","timezone_abbreviation":"GMT+9","elevation":37.0,"hourly_units":{"time":"iso8601","temperature_2m":"°C"},"hourly":{"time":["2026-10-08T00:00","2026-10-08T01:00","2026-10-08T02:00","2026-10-08T03:00","2026-10-08T04:00","2026-10-08T05:00","2026-10-08T06:00","2026-10-08T07:00","2026-10-08T08:00","2026-10-08T09:00","2026-10-08T10:00","2026-10-08T11:00","2026-10-08T12:00","2026-10-08T13:00","2026-10-08T14:00","2026-10-08T15:00","2026-10-08T16:00","2026-10-08T17:00","2026-10-08T18:00","2026-10-08T19:00","2026-10-08T20:00","2026-10-08T21:00","2026-10-08T22:00","2026-10-08T23:00"],"temperature_2m":[14.5,13.8,13.4,12.8,12.3,11.5,11.2,10.7,11.8,13.8,16.1,18.4,20.5,21.7,22.3,22.7,22.7,22.1,20.5,19.0,17.9,17.2,16.6,16.0]}}
+# Open API Service 2 - Click the map, get the weather
+# A click on the map becomes latitude and longitude, which become an API request.
+
+import requests
+import pandas as pd
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
+
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+@st.cache_data(ttl=600)  # remember answers for 10 minutes
+def get_hourly_temperature(lat, lon):
+    resp = requests.get(
+        FORECAST_URL,
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "hourly": "temperature_2m",
+            "forecast_days": 2,
+            "timezone": "auto",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    hourly = resp.json()["hourly"]
+    df = pd.DataFrame({
+        "time": pd.to_datetime(hourly["time"]),
+        "Temperature (°C)": hourly["temperature_2m"],
+    })
+    return df.set_index("time")
+
+
+st.set_page_config(page_title="Interactive Weather Map", layout="centered")
+st.title("Interactive Weather Dashboard")
+st.caption("Arts and Advanced Big Data | Open API, Service 2")
+
+st.subheader("1. Pick a place (click the map)")
+fmap = folium.Map(location=[36.5, 127.5], zoom_start=6)
+result = st_folium(fmap, height=380, width=700)
+
+clicked = (result or {}).get("last_clicked")
+if not clicked:
+    st.info("Click anywhere on the map to load the hourly temperature for that place.")
+    st.stop()
+
+lat, lon = round(clicked["lat"], 3), round(clicked["lng"], 3)
+st.subheader(f"2. Hourly temperature at {lat}, {lon}")
+
+try:
+    df = get_hourly_temperature(lat, lon)
+except requests.RequestException:
+    st.error("Could not reach the weather service right now. Please try again in a minute.")
+    st.stop()
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Now (first hour)", f"{df.iloc[0, 0]:.1f} °C")
+col2.metric("Highest", f"{df.iloc[:, 0].max():.1f} °C")
+col3.metric("Lowest", f"{df.iloc[:, 0].min():.1f} °C")
+st.line_chart(df)
+
+st.caption("Data: Open-Meteo.com (free for non-commercial use).")
